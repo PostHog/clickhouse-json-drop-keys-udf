@@ -54,6 +54,24 @@ func TestDropKeysJSON(t *testing.T) {
 			want:  `{"jeden":1,"cztery":4,"piec":{"dwa":1}}`,
 			keys:  []string{"dwa", "trzy"},
 		},
+		{
+			name:  "drop nested key with dot notation",
+			input: `{"id":1,"props":{"secret":"xxx","public":"yyy"}}`,
+			want:  `{"id":1,"props":{"public":"yyy"}}`,
+			keys:  []string{"props.secret"},
+		},
+		{
+			name:  "drop deeply nested key",
+			input: `{"a":{"b":{"c":1,"d":2}}}`,
+			want:  `{"a":{"b":{"d":2}}}`,
+			keys:  []string{"a.b.c"},
+		},
+		{
+			name:  "drop entire nested object",
+			input: `{"a":{"b":1},"c":2}`,
+			want:  `{"c":2}`,
+			keys:  []string{"a"},
+		},
 	}
 
 	for _, c := range cases {

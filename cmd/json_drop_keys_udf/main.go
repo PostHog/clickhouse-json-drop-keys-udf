@@ -104,14 +104,14 @@ func (o *objectNode) DropKeys(keysToDrop jsonKey) node {
 	o.entries = expandDottedEntries(o.entries)
 
 	for i, e := range o.entries {
-		if val, ok := keysToDrop[e.key]; ok && len(val) > 0 {
+		if val, ok := keysToDrop[e.key]; ok && val != nil {
 			o.entries[i].value = o.entries[i].value.DropKeys(val)
 		}
 	}
 
 	writeIdx := 0
 	for _, entry := range o.entries {
-		if _, toDrop := keysToDrop[entry.key]; toDrop {
+		if val, toDrop := keysToDrop[entry.key]; toDrop && val == nil {
 			continue
 		}
 		o.entries[writeIdx] = entry
@@ -480,9 +480,20 @@ func parseSingleQuotedArray(s string) ([]string, error) {
 }
 
 func makeKeyDict(keys []string) jsonKey {
-	dict := make(jsonKey, len(keys))
+	dict := make(jsonKey)
 	for _, key := range keys {
-		dict[key] = nil
+		parts := strings.Split(key, ".")
+		current := dict
+		for i, part := range parts {
+			if i == len(parts)-1 {
+				current[part] = nil
+			} else {
+				if current[part] == nil {
+					current[part] = make(jsonKey)
+				}
+				current = current[part]
+			}
+		}
 	}
 	return dict
 }
