@@ -1,0 +1,27 @@
+name: CI - JSON Drop Keys UDF
+
+on:
+  push:
+    paths:
+      - 'go/json_drop_keys_udf/**'
+  pull_request:
+    paths:
+      - 'go/json_drop_keys_udf/**'
+
+defaults:
+  run:
+    working-directory: go/json_drop_keys_udf
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache-dependency-path: go/json_drop_keys_udf/go.sum
+
+      - name: Run tests
+        run: go test -v ./...
