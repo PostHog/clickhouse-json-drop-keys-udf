@@ -1,7 +1,6 @@
 name: CI - JSON Drop Keys UDF
 
 on:
-  push:
   pull_request:
 
 defaults:
