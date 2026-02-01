@@ -114,3 +114,64 @@ func TestParseSingleQuotedArray(t *testing.T) {
 		})
 	}
 }
+
+func TestMakeKeyDict(t *testing.T) {
+	cases := []struct {
+		name string
+		keys []string
+		want jsonKey
+	}{
+		{
+			name: "nil input",
+			keys: nil,
+			want: jsonKey{},
+		},
+		{
+			name: "empty input",
+			keys: []string{},
+			want: jsonKey{},
+		},
+		{
+			name: "single top-level key",
+			keys: []string{"a"},
+			want: jsonKey{"a": nil},
+		},
+		{
+			name: "multiple top-level keys",
+			keys: []string{"a", "b", "c"},
+			want: jsonKey{"a": nil, "b": nil, "c": nil},
+		},
+		{
+			name: "single nested key",
+			keys: []string{"a.b"},
+			want: jsonKey{"a": jsonKey{"b": nil}},
+		},
+		{
+			name: "deeply nested key",
+			keys: []string{"a.b.c.d"},
+			want: jsonKey{"a": jsonKey{"b": jsonKey{"c": jsonKey{"d": nil}}}},
+		},
+		{
+			name: "mixed top-level and nested keys",
+			keys: []string{"x", "a.b"},
+			want: jsonKey{"x": nil, "a": jsonKey{"b": nil}},
+		},
+		{
+			name: "multiple nested keys under same parent",
+			keys: []string{"a.b", "a.c"},
+			want: jsonKey{"a": jsonKey{"b": nil, "c": nil}},
+		},
+		{
+			name: "nested key and parent key both specified",
+			keys: []string{"a.b", "a"},
+			want: jsonKey{"a": nil},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := makeKeyDict(c.keys)
+			assert.Equal(t, c.want, got)
+		})
+	}
+}
