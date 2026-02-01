@@ -2,11 +2,7 @@ name: CI - JSON Drop Keys UDF
 
 on:
   push:
-    paths:
-      - 'go/json_drop_keys_udf/**'
   pull_request:
-    paths:
-      - 'go/json_drop_keys_udf/**'
 
 defaults:
   run:
