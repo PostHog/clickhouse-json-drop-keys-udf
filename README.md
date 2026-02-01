@@ -1,88 +1,91 @@
-# PostHog Project Template
+# JSON Drop Keys UDF
 
-A standardized project template for consistent development workflows across all of PostHog's repositories. This template provides a solid foundation with common scripts, configuration files, license, and project structure that can be customized for your specific needs.
+This repository provides a ClickHouse executable UDF named `JSONDropKeys` that removes specified keys from JSON objects.
 
-## Using This Template
+Rules
 
-### Creating a New Project
+- Takes a const array parameter specifying which keys to drop.
+- Nested objects/arrays are processed recursively.
+- Keys containing dots are treated as paths (e.g. dropping `a.b` removes `b` from nested object `a`).
+- Input/output format is `Raw` with one JSON string per row.
+- The UDF exits with a descriptive error on malformed JSON input.
 
-1. **Clone from Template**: Use GitHub's "Use this template" button or clone directly:
+Repository layout
 
-```bash
-git clone https://github.com/PostHog/template.git your-project-name
-cd your-project-name
+- `cmd/json_drop_keys_udf/main.go`: Go UDF implementation.
+- `udf/JSONDropKeys_function.xml`: ClickHouse executable UDF definition.
+- `udf/udf_config.xml`: ClickHouse config to load executable UDF definitions.
+- `scripts/build.sh`: CGO-disabled linux binaries for amd64/arm64.
+- `scripts/integration_test.sh`: Docker Compose integration test.
+- `testdata/`: input/expected fixtures and random samples.
+
+Build
+
+```sh
+scripts/build.sh
 ```
 
-2. **Initialize as New Repository**: Remove the template's git history and start fresh:
+Install (ClickHouse server)
 
-```bash
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from template"
+1. Copy the binary to the ClickHouse user scripts directory:
+
+```sh
+sudo cp bin/json_drop_keys_udf-linux-amd64 /var/lib/clickhouse/user_scripts/json_drop_keys_udf
+sudo chmod +x /var/lib/clickhouse/user_scripts/json_drop_keys_udf
 ```
 
-3. **Replace README**: Replace this template README with the project-specific one from [README.demo.md](README.demo.md):
+2. Copy the UDF definition file (name must end with `_function.xml`):
 
-```bash
-mv README.demo.md README.md
+```sh
+sudo cp udf/JSONDropKeys_function.xml /etc/clickhouse-server/user_defined/JSONDropKeys_function.xml
 ```
 
-4. **Customize for Your Project**:
-   - Customize your README including language-specific requirements
-   - Update configuration files
-   - Add your source code and dependencies
-   - Update documentation
+3. Ensure ClickHouse loads executable UDF configs:
 
-### What's Included
-
-This template provides:
-
-- **Standardized Scripts**: Common development tasks in `bin/` directory
-- **Project Structure**: Consistent organization across projects
-- **Configuration Files**: Common `.gitignore`, `.gitattributes`, etc.
-- **Documentation**: Templates and guides for customization
-- **Github Configuration**: Basic issues/PR templates inside the [.github](./.github) folder
-
-## Scripts to Rule Them All
-
-The `bin/` directory contains standardized scripts following the "Scripts to Rule Them All" pattern, providing a consistent interface for common development tasks across different projects and languages.
-
-### Script Structure
-
-```
-bin/
-├── helpers/
-│   └── _utils.sh     # Common utility functions
-├── setup             # Initial project setup
-├── bootstrap         # Resolve dependencies
-├── start             # Start the application
-├── test              # Run tests
-├── fmt               # Format code
-├── lint              # Run linters
-├── build             # Build the project
-├── clean             # Clean build artifacts
-└── update            # Update dependencies
+```sh
+sudo cp udf/udf_config.xml /etc/clickhouse-server/config.d/udf_config.xml
 ```
 
-### Usage
+4. Restart ClickHouse:
 
-1. Customize scripts for your specific language/framework
-2. Run scripts from project root: `bin/test`
+```sh
+sudo systemctl restart clickhouse-server
+```
 
-### Script Guidelines
+Integration test (Docker Compose)
 
-- All scripts should be idempotent
-- Include help text with `#/` comments
-- Source `bin/helpers/_utils.sh` for common functions
-- Set working directory to project root
-- Exit with appropriate status codes
+```sh
+scripts/integration_test.sh
+```
 
-### Best Practices
+Performance benchmark
 
-1. **Keep scripts simple**: Each script should do one thing well
-2. **Use helpers**: Don't repeat code, add it to [`_utils.sh`](./bin/helpers/_utils.sh)
-3. **Provide feedback**: Use print_color to show progress
-4. **Handle errors**: Check return codes and fail gracefully
-5. **Document options**: Use `#/` comments for help text
-6. **Be idempotent**: Scripts should be safe to run multiple times
+```sh
+scripts/bench_file.sh
+```
+
+This downloads a sample dataset and benchmarks throughput (MiB/s).
+
+Example
+
+```sql
+SELECT JSONDropKeys(['a', 'b'])('{"id":1,"a":"x","b":"y","c":"z"}');
+```
+
+Result:
+
+```json
+{ "id": 1, "c": "z" }
+```
+
+Dropping nested keys:
+
+```sql
+SELECT JSONDropKeys(['props.secret'])('{"id":1,"props":{"secret":"xxx","public":"yyy"}}');
+```
+
+Result:
+
+```json
+{ "id": 1, "props": { "public": "yyy" } }
+```
