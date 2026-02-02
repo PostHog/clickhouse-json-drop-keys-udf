@@ -7,6 +7,6 @@
             <type>String</type>
         </argument>
         <format>Raw</format>
-        <command>json_drop_keys_udf {test_parameter:Array(String)}</command>
+        <command>json_drop_keys_udf {keys_parameter:Array(String)}</command>
     </function>
 </functions>
