@@ -49,7 +49,7 @@ jobs:
           fi
           (cd cmd/json_drop_keys_udf && go build -o "../../dist/${bin_name}" .)
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: json_drop_keys_udf-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
