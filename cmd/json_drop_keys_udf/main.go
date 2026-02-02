@@ -500,22 +500,27 @@ func makeKeyDict(keys []string) jsonKey {
 
 func main() {
 	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to file")
+	debugLog := flag.Bool("debug", false, "enable debug logging")
 	flag.Parse()
 
 	keysArg := flag.Arg(0)
 
-	logFile, err := os.OpenFile("/tmp/json_drop_keys_udf.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "open log file error: %v\n", err)
-		os.Exit(1)
+	stdErr := os.Stderr
+	if *debugLog {
+		logFile, err := os.OpenFile("/tmp/json_drop_keys_udf.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "open log file error: %v\n", err)
+			os.Exit(1)
+		}
+		defer logFile.Close()
+		stdErr = logFile
+		log.SetOutput(logFile)
+		fmt.Fprintf(logFile, "keysToDrop: %s\n", keysArg)
 	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
-	fmt.Fprintf(logFile, "keysToDrop: %s\n", keysArg)
 
 	keys, err := parseSingleQuotedArray(keysArg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "keysToDrop parse error: %v\n", err)
+		fmt.Fprintf(stdErr, "keysToDrop parse error: %v\n", err)
 		os.Exit(1)
 	}
 	keysToDrop := makeKeyDict(keys)
@@ -523,12 +528,12 @@ func main() {
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cpuprofile create error: %v\n", err)
+			fmt.Fprintf(stdErr, "cpuprofile create error: %v\n", err)
 			os.Exit(1)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			_ = f.Close()
-			fmt.Fprintf(os.Stderr, "cpuprofile start error: %v\n", err)
+			fmt.Fprintf(stdErr, "cpuprofile start error: %v\n", err)
 			os.Exit(1)
 		}
 		defer func() {
@@ -545,7 +550,7 @@ func main() {
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil && err != io.EOF {
-			fmt.Fprintf(os.Stderr, "stdin read error: %v\n", err)
+			fmt.Fprintf(stdErr, "stdin read error: %v\n", err)
 			return
 		}
 
@@ -566,7 +571,7 @@ func main() {
 
 		procErr := processLine(keysToDrop, line, buf)
 		if procErr != nil {
-			fmt.Fprintf(os.Stderr, "line processing error: %v\n", procErr)
+			fmt.Fprintf(stdErr, "line processing error: %v\n", procErr)
 			os.Exit(1)
 		}
 
