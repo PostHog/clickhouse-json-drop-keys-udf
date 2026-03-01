@@ -68,7 +68,7 @@ jobs:
           git fetch origin main --depth=1
           echo "version=$(git rev-parse --short origin/main)" >> "$GITHUB_OUTPUT"
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: dist
       - name: Publish release
