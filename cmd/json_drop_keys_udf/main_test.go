@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +12,15 @@ func TestProcessLineErrorsOnMalformedJSON(t *testing.T) {
 	var buf bytes.Buffer
 	err := processLine(nil, []byte("{\"a\":"), &buf)
 	assert.Error(t, err, "expected error for malformed JSON, got nil")
+}
+
+func TestProcessLineErrorsOnDeeplyNestedJSON(t *testing.T) {
+	depth := maxDepth + 50
+	input := strings.Repeat(`{"a":`, depth) + "1" + strings.Repeat("}", depth)
+
+	var buf bytes.Buffer
+	err := processLine(nil, []byte(input), &buf)
+	assert.Error(t, err, "expected error for JSON deeper than the cap, got nil")
 }
 
 func TestDropKeysJSON(t *testing.T) {

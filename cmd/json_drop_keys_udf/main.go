@@ -326,7 +326,15 @@ func recycleNode(n node) {
 	}
 }
 
-func convertFastJSON(value *fastjson.Value) (node, error) {
+// maxDepth caps the recursion in convertFastJSON, Write, and recycleNode. It
+// matches the fastjson parser depth limit, so a blob that parses cannot exceed
+// it. The check guards against a stack overflow if that limit ever changes.
+const maxDepth = 300
+
+func convertFastJSON(value *fastjson.Value, depth int) (node, error) {
+	if depth > maxDepth {
+		return nil, fmt.Errorf("max nesting depth %d exceeded", maxDepth)
+	}
 	switch value.Type() {
 	case fastjson.TypeObject:
 		obj, err := value.Object()
@@ -341,7 +349,7 @@ func convertFastJSON(value *fastjson.Value) (node, error) {
 			objNode.entries = make([]objectEntry, 0, obj.Len())
 		}
 		obj.Visit(func(key []byte, v *fastjson.Value) {
-			child, convErr := convertFastJSON(v)
+			child, convErr := convertFastJSON(v, depth+1)
 			if convErr != nil {
 				err = convErr
 				return
@@ -366,7 +374,7 @@ func convertFastJSON(value *fastjson.Value) (node, error) {
 			arrNode.values = make([]node, 0, len(values))
 		}
 		for _, item := range values {
-			child, convErr := convertFastJSON(item)
+			child, convErr := convertFastJSON(item, depth+1)
 			if convErr != nil {
 				return nil, convErr
 			}
@@ -421,7 +429,7 @@ func processLine(keys jsonKey, rawLine []byte, buf *bytes.Buffer) error {
 		return fmt.Errorf("json parse error: %w", err)
 	}
 
-	parsed, err := convertFastJSON(value)
+	parsed, err := convertFastJSON(value, 0)
 	if err != nil {
 		return fmt.Errorf("json parse error: %w", err)
 	}
@@ -571,8 +579,13 @@ func main() {
 
 		procErr := processLine(keysToDrop, line, buf)
 		if procErr != nil {
+			// Emit an empty object rather than exiting. Exiting kills the UDF
+			// child process, which fails the user's whole query. The raw line
+			// is never passed through: it still holds the restricted keys the
+			// UDF exists to remove.
 			fmt.Fprintf(stdErr, "line processing error: %v\n", procErr)
-			os.Exit(1)
+			buf.Reset()
+			buf.WriteString("{}")
 		}
 
 		_, _ = writer.Write(buf.Bytes())
