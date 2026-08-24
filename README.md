@@ -8,7 +8,7 @@ Rules
 - Nested objects/arrays are processed recursively.
 - Keys containing dots are treated as paths (e.g. dropping `a.b` removes `b` from nested object `a`).
 - Input/output format is `Raw` with one JSON string per row.
-- The UDF exits with a descriptive error on malformed JSON input.
+- On malformed JSON input, the UDF logs the error to stderr and outputs an empty object `{}`, so one bad row does not fail the whole query. The raw input is never passed through, because it can still hold restricted keys.
 
 Repository layout
 

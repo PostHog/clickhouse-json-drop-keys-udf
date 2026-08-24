@@ -60,21 +60,20 @@ docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
 diff -u "$ROOT_DIR/testdata/expected.tsv" "$OUTPUT_FILE"
 rm -f "$OUTPUT_FILE"
 
-set +e
-BAD_LOG=$(mktemp)
+# A malformed row must not fail the whole query. The UDF outputs an empty
+# object for the bad row and keeps going.
+BAD_OUTPUT_FILE=$(mktemp)
 docker compose -f "$COMPOSE_FILE" exec -T clickhouse clickhouse-client \
   --query "SELECT JSONDropKeys(['a'])(x) FROM file('bad_input.tsv', 'TabSeparated', 'x String') FORMAT TabSeparated" \
-  >/dev/null 2> "$BAD_LOG"
+  > "$BAD_OUTPUT_FILE"
 
-status=$?
-set -e
-
-if [[ $status -eq 0 ]]; then
-  echo "Expected UDF failure on malformed JSON but query succeeded." >&2
-  rm -f "$BAD_LOG"
+if [[ "$(cat "$BAD_OUTPUT_FILE")" != "{}" ]]; then
+  echo "Expected '{}' for malformed JSON, got:" >&2
+  cat "$BAD_OUTPUT_FILE" >&2
+  rm -f "$BAD_OUTPUT_FILE"
   exit 1
 fi
 
-rm -f "$BAD_LOG"
+rm -f "$BAD_OUTPUT_FILE"
 
 echo "Integration test passed."
